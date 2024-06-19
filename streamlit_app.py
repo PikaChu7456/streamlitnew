@@ -1,40 +1,51 @@
-import altair as alt
-import numpy as np
-import pandas as pd
 import streamlit as st
+import cohere
 
-"""
-# Welcome to Streamlit!
+# Initialize the Cohere client
+co = cohere.Client('TcZjPcNuntkBpDbSsH5M5X8N9vlSs6Mq11KoL3rd')
 
-Edit `/streamlit_app.py` to customize this app to your heart's desire :heart:.
-If you have any questions, checkout our [documentation](https://docs.streamlit.io) and [community
-forums](https://discuss.streamlit.io).
+# Initialize the chat history
+if 'chat_history' not in st.session_state:
+    st.session_state.chat_history = []
 
-In the meantime, below is an example of what you can do with just a few lines of code:
-"""
+# Create a Streamlit text input for user input
+user_input = st.text_input("Enter your message:")
 
-num_points = st.slider("Number of points in spiral", 1, 10000, 1100)
-num_turns = st.slider("Number of turns in spiral", 1, 300, 31)
+# Create a Streamlit button to trigger the response generation
+generate_response = st.button("Get Response")
 
-indices = np.linspace(0, 1, num_points)
-theta = 2 * np.pi * num_turns * indices
-radius = indices
+# Create a Streamlit text area to display the chat history
+chat_history_area_placeholder = st.empty()
+chat_history_area = chat_history_area_placeholder.text_area("Chat History:", height=300, value="")
 
-x = radius * np.cos(theta)
-y = radius * np.sin(theta)
+if generate_response:
+    # Get the user input
+    message = user_input
 
-df = pd.DataFrame({
-    "x": x,
-    "y": y,
-    "idx": indices,
-    "rand": np.random.randn(num_points),
-})
+    # Generate a response with the current chat history
+    response = co.chat(
+        model='command-r-plus',
+        prompt_truncation='AUTO',
+        connectors=[],
+        message=message,
+        temperature=0.8,
+        chat_history=st.session_state.chat_history,
+        preamble='Humorous, witty, and playful. Think comedy writer.'
+    )
+    answer = response.text
 
-st.altair_chart(alt.Chart(df, height=700, width=700)
-    .mark_point(filled=True)
-    .encode(
-        x=alt.X("x", axis=None),
-        y=alt.Y("y", axis=None),
-        color=alt.Color("idx", legend=None, scale=alt.Scale()),
-        size=alt.Size("rand", legend=None, scale=alt.Scale(range=[1, 150])),
-    ))
+    # Update the chat history
+    user_message = {"role": "USER", "text": message}
+    bot_message = {"role": "CHATBOT", "text": answer}
+
+    st.session_state.chat_history.append(user_message)
+    st.session_state.chat_history.append(bot_message)
+
+    # Update the chat history area
+    chat_history_text = ""
+    for message in st.session_state.chat_history:
+        if message["role"] == "USER":
+            chat_history_text += "**You:** " + message["text"] + "\n"
+        else:
+            chat_history_text += "**Bot:** " + message["text"] + "\n"
+    chat_history_area_placeholder.text_area("Chat History:", height=300, value=chat_history_text)
